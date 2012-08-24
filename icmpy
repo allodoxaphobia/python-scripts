@@ -1,0 +1,120 @@
+#!/usr/bin/env python 
+import socket
+from struct import pack,calcsize
+from os import getpid
+
+
+ICMP_TYPE_DESTINATION_UNREACHABLE=3
+ICMP_TYPE_SOURCE_QUENCHE=4
+ICMP_TYPE_REDIRECT = 5 
+ICMP_TYPE_ECHO_REQUEST = 8
+ICMP_TYPE_ROUTER_ADVERTTISEMENT = 9
+ICMP_TYPE_ROUTER_SOLICITATION = 10
+ICMP_TYPE_TIME_REQUEST = 13
+ICMP_TYPE_INFORMATION_REQUEST = 15
+
+ICMP_PROTOCOL_ID = socket.getprotobyname("icmp")
+
+def icmp_ping(destination,data="azerty"):
+	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
+	my_ID = getpid() & 0xFFFF
+	#create dummy packet to create checksum	
+	my_checksum = 0 
+	header = pack("bbHHh", ICMP_TYPE_ECHO_REQUEST, 0, my_checksum, my_ID, 1)
+	tmpChecksum = checksum(header + data)
+	#create new header with correct checksum
+	header = pack("bbHHh", ICMP_TYPE_ECHO_REQUEST , 0, socket.htons(tmpChecksum), my_ID, 1)
+	packet = header + data
+	my_socket.sendto(packet, (destination,1))
+
+def icmp_time(destination,data="azerty"):
+	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
+	my_ID = getpid() & 0xFFFF
+	#create dummy packet to create checksum	
+	my_checksum = 0 
+	header = pack("bbHHh", ICMP_TYPE_TIME_REQUEST, 0, my_checksum, my_ID, 1)
+	tmpChecksum = checksum(header + data)
+	#create new header with correct checksum
+	header = pack("bbHHh", ICMP_TYPE_TIME_REQUEST , 0, socket.htons(tmpChecksum), my_ID, 1)
+	packet = header + data
+	my_socket.sendto(packet, (destination,1))
+
+def icmp_info(destination,data="azerty"):
+	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
+	my_ID = getpid() & 0xFFFF
+	#create dummy packet to create checksum	
+	my_checksum = 0 
+	header = pack("bbHHh", ICMP_TYPE_INFORMATION_REQUEST, 0, my_checksum, my_ID, 1)
+	tmpChecksum = checksum(header + data)
+	#create new header with correct checksum
+	header = pack("bbHHh", ICMP_TYPE_INFORMATION_REQUEST , 0, socket.htons(tmpChecksum), my_ID, 1)
+	packet = header + data
+	my_socket.sendto(packet, (destination,1))
+
+def icmp_router_solicit(destination,data="azerty"):
+	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
+	my_ID = getpid() & 0xFFFF
+	#create dummy packet to create checksum	
+	my_checksum = 0 
+	header = pack("bbHHh", ICMP_TYPE_ROUTER_SOLICITATION , 0, my_checksum, my_ID, 1)
+	tmpChecksum = checksum(header + data)
+	#create new header with correct checksum
+	header = pack("bbHHh", ICMP_TYPE_ROUTER_SOLICITATION , 0, socket.htons(tmpChecksum), my_ID, 1)
+	packet = header + data
+	my_socket.sendto(packet, (destination,1))
+
+
+def icmp_redirect(destination,gateway_address, original_packet):
+	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
+	my_ID = getpid() & 0xFFFF
+	#create dummy packet to create checksum	
+	my_checksum = 0 
+	header = pack("bbH", ICMP_TYPE_REDIRECT , 1, my_checksum) + ip2long(gateway_address)
+	data = original_packet
+	tmpChecksum = checksum(header+data)
+	#create new header with correct checksum
+	header = pack("bbH", ICMP_TYPE_REDIRECT,  1, socket.htons(tmpChecksum)) + ip2long(gateway_address)
+	packet = header
+	my_socket.sendto(packet+data, (destination,1))
+
+
+def checksum(source_string):
+	"""
+	taken from http://mail.python.org/pipermail/tutor/2009-November/072706.html
+	"""
+	sum = 0
+	countTo = (len(source_string)/2)*2
+	count = 0
+	while count<countTo:
+		thisVal = ord(source_string[count + 1])*256 + ord(source_string[count])
+		sum = sum + thisVal
+		sum = sum & 0xffffffff # Necessary?
+        	count = count + 2
+	
+	if countTo<len(source_string):
+		sum = sum + ord(source_string[len(source_string) - 1])
+		sum = sum & 0xffffffff # Necessary?
+	sum = (sum >> 16)  +  (sum & 0xffff)
+	sum = sum + (sum >> 16)
+	answer = ~sum
+	answer = answer & 0xffff
+	# Swap bytes. Bugger me if I know why.
+	answer = answer >> 8 | (answer << 8 & 0xff00)
+	return answer
+
+def ip2long(ip):
+	arr = ip.split(".")
+	result = ""
+	for block in arr:
+		result = result + pack("b",int(block))
+	print result
+	return result
+
+
+#icmp_ping("10.1.14.36","abcdefghij")
+#icmp_time("10.1.14.36","azer")
+#icmp_info("10.1.14.36","azer")
+#icmp_router_solicit("10.1.14.36")
+
+icmp_redirect("10.1.14.36","10.1.14.36","\x45\x00\x00\x30\x00\x00\x40\x00\x40\x01\x0a\x8e\x0a\x01\x0e\x1a\x0a\x01\x0e\x24")
+
