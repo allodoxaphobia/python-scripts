@@ -15,54 +15,35 @@ ICMP_TYPE_INFORMATION_REQUEST = 15
 
 ICMP_PROTOCOL_ID = socket.getprotobyname("icmp")
 
-def icmp_ping(destination,data="azerty"):
+def sendpacket(packet,destination):
 	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
-	my_ID = getpid() & 0xFFFF
-	#create dummy packet to create checksum	
-	my_checksum = 0 
-	header = pack("bbHHh", ICMP_TYPE_ECHO_REQUEST, 0, my_checksum, my_ID, 1)
-	tmpChecksum = checksum(header + data)
-	#create new header with correct checksum
-	header = pack("bbHHh", ICMP_TYPE_ECHO_REQUEST , 0, socket.htons(tmpChecksum), my_ID, 1)
-	packet = header + data
 	my_socket.sendto(packet, (destination,1))
+
+def icmp_basic_struct(destination,body,icmp_type):
+	my_ID = getpid() & 0xFFFF
+	my_checksum = 0 
+	header = pack("bbHHh", icmp_type, 0, my_checksum, my_ID, 1)
+	tmpChecksum = checksum(header + data)
+	header = pack("bbHHh", icmp_type, 0, socket.htons(tmpChecksum), my_ID, 1)
+	packet = header + data
+	return packet
+
+	
+def icmp_ping(destination,data="azerty"):
+	packet = icmp_basic_struct(destination,data, ICMP_TYPE_ECHO_REQUEST)
+	sendpacket(destination,packet)
 
 def icmp_time(destination,data="azerty"):
-	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
-	my_ID = getpid() & 0xFFFF
-	#create dummy packet to create checksum	
-	my_checksum = 0 
-	header = pack("bbHHh", ICMP_TYPE_TIME_REQUEST, 0, my_checksum, my_ID, 1)
-	tmpChecksum = checksum(header + data)
-	#create new header with correct checksum
-	header = pack("bbHHh", ICMP_TYPE_TIME_REQUEST , 0, socket.htons(tmpChecksum), my_ID, 1)
-	packet = header + data
-	my_socket.sendto(packet, (destination,1))
+	packet = icmp_basic_struct(destination,data, ICMP_TYPE_TIME_REQUEST)
+	sendpacket(destination,packet)
 
 def icmp_info(destination,data="azerty"):
-	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
-	my_ID = getpid() & 0xFFFF
-	#create dummy packet to create checksum	
-	my_checksum = 0 
-	header = pack("bbHHh", ICMP_TYPE_INFORMATION_REQUEST, 0, my_checksum, my_ID, 1)
-	tmpChecksum = checksum(header + data)
-	#create new header with correct checksum
-	header = pack("bbHHh", ICMP_TYPE_INFORMATION_REQUEST , 0, socket.htons(tmpChecksum), my_ID, 1)
-	packet = header + data
-	my_socket.sendto(packet, (destination,1))
+	packet = icmp_basic_struct(destination,data, ICMP_TYPE_INFORMATION_REQUEST)
+	sendpacket(destination,packet)
 
 def icmp_router_solicit(destination,data="azerty"):
-	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
-	my_ID = getpid() & 0xFFFF
-	#create dummy packet to create checksum	
-	my_checksum = 0 
-	header = pack("bbHHh", ICMP_TYPE_ROUTER_SOLICITATION , 0, my_checksum, my_ID, 1)
-	tmpChecksum = checksum(header + data)
-	#create new header with correct checksum
-	header = pack("bbHHh", ICMP_TYPE_ROUTER_SOLICITATION , 0, socket.htons(tmpChecksum), my_ID, 1)
-	packet = header + data
-	my_socket.sendto(packet, (destination,1))
-
+	packet = icmp_basic_struct(destination,data, ICMP_TYPE_ROUTER_SOLICITATION)
+	sendpacket(destination,packet)
 
 def icmp_redirect(destination,gateway_address, original_packet):
 	my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTOCOL_ID)
