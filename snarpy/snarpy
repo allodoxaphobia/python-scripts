@@ -1,13 +1,188 @@
 #!/usr/bin/env python 
 from optparse import OptionParser
-from include import arpframe
-from include import utils
+import socket
+import fcntl
+from binascii import crc32
+from struct import pack
+from random import randint
+import sys
+from time import sleep
 
-#####################################################################################
+ARP_OPCODE_REQUEST = "\x00\x01"
+ARP_OPCODE_RESPONSE = "\x00\x02"
+PACKET_TYPE = "\x08\x06"
+INTERFACE = "wlan0"
 
-if __name__ == "__main__":
-	myip = utils.getinterface_ip("eth0")
-	#arpframe.arprequestflood("eth0", "10.1.14.69")
-	arpframe.arpspoof("eth0","10.1.14.112","10.1.8.1")
+_SENDER_MAC = ""
+_SENDER_IP = ""
+_DEST_MAC = ""
+_DEST_IP = ""
+_TARGET_MAC = ""
+_TARGET_IP = ""
+_PROTO = ""
+
+#REGION THE MAIN BUSSINES
+def construct_arp(sender_hw_address, sender_proto_address, opcode, dest_hw_address, target_hw_address, target_proto_address):
+	#HEADER
+	frame = ""
+	frame += mac2binary(dest_hw_address)
+	frame += mac2binary(sender_hw_address)
+	frame += PACKET_TYPE		#x08x06 = ARP
+	frame += "\x00\x01"   		#HARDWARE ADDRESS TYPE
+	frame += "\x08\x00"   		#PROTOCOL TYPE	
+	frame += "\x06"   		#HARDWARE ADDRESS LENGTH
+	frame += "\x04"   		#PROTO ADDRESS LENGTH
+	#ARP BODY
+	frame += opcode #request or response
+	frame += mac2binary(sender_hw_address) 
+	frame += dotteddec2binary(sender_proto_address)
+	frame += mac2binary(target_hw_address)
+	frame += dotteddec2binary(target_proto_address)
+	while len(frame) <56:
+		frame += "\x00"
+	frame = calc_crc(frame)
+	return frame
+
+def send_frame(frame):
+	try:
+		s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW) 
+		s.bind((INTERFACE, 0))
+		s.send(frame)
+		s.close()
+	except:
+		print "An error occured trying to send the frame."
+
+#REGION UTILITIES
+def mac2binary(mac):
+	try:
+		if mac=="0" or mac == 0:
+			mac = randommac()
+		elif mac=="":
+			mac = "FF:FF:FF:FF:FF:FF"
+		tmpMAC = mac.split(":")
+		result = ""
+		for part in tmpMAC:
+			result += pack("B",(int(part,16)))
+		return result
+	except:
+		print "Invalid Mac specified : " + mac
+		sys.exit()
+
+def dotteddec2binary(_ip):
+	tmpIP = _ip.split(".")
+	result = ""
+	for part in tmpIP:
+		result += pack("B",(int(part,10)))
+	return result
+
+def calc_crc(frame):
+	#TODO
+	#1. add dummy crc
+	tmpframe = frame
+	tmpframe += "\x00"
+	tmpframe += "\x00"
+	tmpframe += "\x00"
+	tmpframe += "\x00"
+	#2. calc real crc 
+	check = crc32(tmpframe)
+	#print hex(check)
+	#3. replace dummy with real crc
+	return tmpframe
+
+def int2mac(integr):
+	#converts integer to hex string of exactly 2 characters
+	#only int 0-255 allowed, if larger, 00 is returned
+	if (integr <0) or  (integr > 255):
+		return "00"
+	else:
+		result = hex(integr)
+		result = result.replace("0x","")
+		while len(result)< 2:
+			result = "0" + result
+		return result
+	
+	#fi
+
+def getinterface_ip(interface):
+	#copy/pasta
+    	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	return socket.inet_ntoa(fcntl.ioctl(s.fileno(),0x8915, pack('256s', interface[:15]))[20:24])
+
+def getinterface_mac(interface):
+	    #copy/pasta
+	    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
+	    info = fcntl.ioctl(s.fileno(), 0x8927,  pack('256s', interface[:15])) 
+	    return ''.join(['%02x:' % ord(char) for char in info[18:24]])[:-1]
+ 
+
+def randommac():
+	randval1 = randint(0,255)
+	randval2= randint(0,255) #technically (TODO) : the last 2 bits must be 0 as per IEEE 802.3-2002 Section 3.2.3(b)
+	randval3 = randint(0,255)
+	randval4 = randint(0,255)
+	randval5 = randint(0,255)
+	randval6= randint(0,255)
+	randmac= int2mac(randval1) + ":" +int2mac(randval2) + ":" + int2mac(randval3) + ":" + int2mac(randval4) + ":" + int2mac(randval5) + ":" + int2mac(randval6)
+	return randmac
+
+def main(argv=None):
+	parser = OptionParser(usage="%prog [options]")
+	parser.add_option("-f", "--type", dest="type",default="request",help="Select type: request or response, request is default")
+	parser.add_option("--smac",dest="sender_mac",default="",help="Sender MAC address, leave blank for interface mac or set to 0 for a random generated mac address")
+	parser.add_option("--dmac",dest="destination_mac",default="",help="recipient MAC address, leave blank for broadcast or set to 0 for a random generated mac address")
+	parser.add_option("--sip",dest="sender_ip", default="",help="Sender IP address, leave blank for interface ip")
+	parser.add_option("-t", "--target",dest="target", default="",help="Target, for a request, this will be the target IP of inquiery, for a response this should be the mac address")
+	parser.add_option("--interval",dest="interval",default=1,help="Interval between frames, default is 1s.")
+	parser.add_option("-n", "--number",dest="number",default=1,help="Number of frames to send, default = 1")
+	parser.add_option("-i","--interface",dest="interface",default="",help="Interface to use, this one is mandatory")
+	
+	options,args = parser.parse_args(argv)
+	
+	i = 0
+	
+	if options.interface=="":
+		print "You need to specify an interface with the -i option"
+		sys.exit(1)
+	else: 
+		INTERFACE= options.interface
+	if options.sender_mac =="" : 
+		_SENDER_MAC = getinterface_mac(INTERFACE)
+	else:
+		_SENDER_MAC = options.sender_mac
+	#
+	if options.sender_ip == "":
+		_SENDER_IP = getinterface_ip(INTERFACE)
+	else:
+		_SENDER_IP = options.sender_ip
+	#
+	if options.target == "":
+		print " The option target is mandatory."
+		sys.exit(1)
+	#
+	#
+	_DEST_MAC = options.destination_mac #empty to boradcast and * to random is dealt with in mac2binary()
+	while i < int(options.number):
+		if options.type=="request":
+			_PROTO = ARP_OPCODE_REQUEST
+			_TARGET_MAC = "00:00:00:00:00:00"
+			_TARGET_IP = options.target
+		else:
+			_PROTO = ARP_OPCODE_RESPONSE
+			_TARGET_MAC = options.target
+			_SENDER_MAC = _TARGET_MAC #counter grat.
+			_TARGET_IP = options.sender_ip
+		frame = construct_arp(_SENDER_MAC, _SENDER_IP, _PROTO, _DEST_MAC, _TARGET_MAC, _TARGET_IP)		
+		send_frame(frame)
+		i=i+1
+		print "Sending ARP " + options.type + " with target " + options.target
+		sleep(int(options.interval)/1000)
+	#done
+
+
+if __name__=="__main__": main()
+
+
+		
+
 
 
