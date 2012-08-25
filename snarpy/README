@@ -1,0 +1,23 @@
+About:
+	snarpy is a command line ARP packet generator. Basically it allows you to send arp requests and responses, choosing to either set
+	arp fields or leaving them as is. This makes this tool usefull for a number of tests, including:
+		 arpspoofing , 
+		 arpflooding (either via responses or requests)
+Usage:
+	type ./snarpy  -h for a set of options. 
+	There are only 2 mandatory options, -i and -t
+	-i is the interface to use (eth0, wlan1, etc..)
+	-t is the target, for a ARP Request the target should be set to an IP address (the ip for which you want to obtain the MAC address)
+		For arp responses, the target should be a mac address, without further settings this would claim your IP to be at the specified MAC.
+
+Examples:
+	arp flooding:
+	=============
+		./snarpy -i eth0 -t 192.168.0.8
+		#above will send broadcasts requesting the location of ip 192.168.0.8
+		#to obtain an arp flood from this, we can set the source mac to random generate
+		./snarpy -i eth0 -t 192.168.0.8 -smac=0 --number=1000
+	arp sppofing:
+	==============
+		./snarpy -i wlan0 -f=response -t 00:88:69:66:66:99 --sip=192.168.0.1 --interval=1000 --number=1000
+		
