@@ -44,13 +44,10 @@ def construct_arp(sender_hw_address, sender_proto_address, opcode, dest_hw_addre
 	return frame
 
 def send_frame(frame):
-	try:
 		s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW) 
 		s.bind((INTERFACE, 0))
 		s.send(frame)
 		s.close()
-	except:
-		print "An error occured trying to send the frame."
 
 #REGION UTILITIES
 def mac2binary(mac):
@@ -132,7 +129,7 @@ def main(argv=None):
 	parser.add_option("--dmac",dest="destination_mac",default="",help="recipient MAC address, leave blank for broadcast or set to 0 for a random generated mac address")
 	parser.add_option("--sip",dest="sender_ip", default="",help="Sender IP address, leave blank for interface ip")
 	parser.add_option("-t", "--target",dest="target", default="",help="Target, for a request, this will be the target IP of inquiery, for a response this should be the mac address")
-	parser.add_option("--interval",dest="interval",default=1,help="Interval between frames, default is 1s.")
+	parser.add_option("--interval",dest="interval",default=10,help="Interval between frames (in milliseconds), default is 10ms.")
 	parser.add_option("-n", "--number",dest="number",default=1,help="Number of frames to send, default = 1")
 	parser.add_option("-i","--interface",dest="interface",default="",help="Interface to use, this one is mandatory")
 	
