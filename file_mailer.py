@@ -1,6 +1,6 @@
 # Created by Somers.R on 07/05/2006
 # used as part of a backup utility
-# this program requires three parameters: email server email address and file
+# this program requires three parameters: email server, email address and file
 
 
 import string
@@ -24,7 +24,7 @@ def CheckFileExists(xfile=""):
 
 # End 
 
-def SetParams():                                        # checks if all parameters arethere and loads them in global variables
+def SetParams():                                        # checks if all parameters are there and loads them in global variables
     try:                                                # sys.argv[0] = executable file name
         global parmServer                               # have to be trapped as being global vars
         parmServer = sys.argv[1]                        # email server
