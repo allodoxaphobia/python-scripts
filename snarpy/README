@@ -17,7 +17,8 @@ Examples:
 		#above will send broadcasts requesting the location of ip 192.168.0.8
 		#to obtain an arp flood from this, we can set the source mac to random generate
 		./snarpy -i eth0 -t 192.168.0.8 -smac=0 --number=1000
-	arp sppofing:
+		
+	arp spoofing:
 	==============
 		./snarpy -i wlan0 -f=response -t 00:88:69:66:66:99 --sip=192.168.0.1 --interval=1000 --number=1000
 		
